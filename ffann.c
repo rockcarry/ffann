@@ -3,25 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
+#include "ffann.h"
 
-#define ANN_MAX_LAYER 10
-
-typedef struct {
-    int     rows;
-    int     cols;
-    double *data;
-} MATRIX;
-
-typedef struct {
-    int     layer_num;
-    int     node_num_list[ANN_MAX_LAYER];
-    int     bias_flg_list[ANN_MAX_LAYER];
-    double *nodeva[ANN_MAX_LAYER - 0];
-    MATRIX *matrix[ANN_MAX_LAYER - 1];
-    int     node_num_max;
-} ANN;
-
-double sigmoid(double x)
+static double sigmoid(double x)
 {
     return 1 / (1 + exp(-x));
 }
@@ -39,9 +24,9 @@ MATRIX* matrix_create(int rows, int cols)
     return matrix;
 }
 
-void matrix_destroy(MATRIX *matrix)
+void matrix_destroy(MATRIX *m)
 {
-    if (matrix) free(matrix);
+    if (m) free(m);
 }
 
 void matrix_multiply(MATRIX *mr, MATRIX *m1, MATRIX *m2)
@@ -70,31 +55,19 @@ void matrix_multiply(MATRIX *mr, MATRIX *m1, MATRIX *m2)
     }
 }
 
-void matrix_add(MATRIX *m1, MATRIX *m2)
+void matrix_adjust(MATRIX *wt, MATRIX *dw, double rate)
 {
     int i, n;
-    if (!m1 || !m2) {
-        printf("matrix_add: invalid m1 or m2 !\n");
+    if (!wt || !dw) {
+        printf("matrix_adjust: invalid wt or dw !\n");
         return;
     }
-    if (m1->rows != m2->rows || m1->cols != m2->cols) {
-        printf("matrix_add: invalid rows or cols !\n");
+    if (wt->rows != dw->rows || wt->cols != dw->cols) {
+        printf("matrix_adjust: invalid rows or cols !\n");
         return;
     }
-    for (i=0,n=m1->rows*m1->cols; i<n; i++) {
-        m1->data[i] += m2->data[i];
-    }
-}
-
-void matrix_scale(MATRIX *matrix, double scale)
-{
-    int i, n;
-    if (!matrix) {
-        printf("matrix_scale: invalid matrix !\n");
-        return;
-    }
-    for (i=0,n=matrix->rows*matrix->cols; i<n; i++) {
-        matrix->data[i] *= scale;
+    for (i=0,n=wt->rows*wt->cols; i<n; i++) {
+        wt->data[i] -= dw->data[i] * rate;
     }
 }
 
@@ -104,7 +77,7 @@ void matrix_print(MATRIX *m)
     printf("\n");
     for (r=0; r<m->rows; r++) {
         for (c=0; c<m->cols; c++) {
-            printf("%-8.3lf ", m->data[c + r * m->cols]);
+            printf("%-8.5lf ", m->data[c + r * m->cols]);
         }
         printf("\n");
     }
@@ -139,7 +112,12 @@ ANN* ann_create(int laynum, int *node_num_list, int *bias_flg_list)
         ann->node_num_max = ann->node_num_max > node_num_list[i] ? ann->node_num_max : node_num_list[i];
     }
 
-    for (i=0; i<laynum-1; i++) ann->matrix[i] = matrix_create(node_num_list[i], node_num_list[i+1]);
+    for (i=0; i<laynum-1; i++) {
+        ann->matrix[i] = matrix_create(node_num_list[i], node_num_list[i+1]);
+        for (n=0; n<ann->matrix[i]->rows*ann->matrix[i]->cols; n++) { // rand init weight matrixs
+            ann->matrix[i]->data[n] = (double)((rand() % RAND_MAX) - (RAND_MAX / 2)) / (RAND_MAX / 2);
+        }
+    }
     return ann;
 }
 
@@ -154,17 +132,19 @@ void ann_destroy(ANN *ann)
     }
 }
 
-void ann_forward(ANN *ann, double *input, int num)
+void ann_forward(ANN *ann, double *input)
 {
     MATRIX mi, mo;
     int    i, n;
 
-    if (!ann || !input || ann->node_num_list[0] != num) {
-        printf("ann_forward: invalid ann, input or num !\n");
+    if (!ann || !input) {
+        printf("ann_forward: invalid ann or input !\n");
         return;
     }
 
-    memcpy(ann->nodeva[0], input, num * sizeof(double));
+    memcpy(ann->nodeva[0], input, ann->node_num_list[0] * sizeof(double));
+    if (ann->bias_flg_list[0]) ann->nodeva[0][ann->node_num_list[0] - 1] = ann->bias_flg_list[0];
+
     for (i=0; i<ann->layer_num-1; i++) {
         mi.rows = 1;
         mi.cols = ann->node_num_list[i+0];
@@ -174,23 +154,31 @@ void ann_forward(ANN *ann, double *input, int num)
         mo.data = ann->nodeva[i+1];
         matrix_multiply(&mo, &mi, ann->matrix[i]);
         for (n=0; n<mo.cols; n++) mo.data[n] = sigmoid(mo.data[n]);
+        if (ann->bias_flg_list[i+1]) ann->nodeva[i+1][ann->node_num_list[i+1] - 1] = ann->bias_flg_list[i+1];
     }
 }
 
-void ann_backward(ANN *ann, double *target, int num, double rate)
+void ann_backward(ANN *ann, double *target, double rate)
 {
-    MATRIX *delta, *dw, prevo;
+    MATRIX *delta, *dtnew, *dw, prevo;
+    MATRIX *copys[ANN_MAX_LAYER];
     int     i, j;
 
-    if (!ann || ann->layer_num < 2 || !target || ann->node_num_list[ann->layer_num-1] != num) {
-        printf("ann_backward: invalid ann, target or num !\n");
+    if (!ann || ann->layer_num < 2 || !target) {
+        printf("ann_backward: invalid ann or target !\n");
         return;
     }
 
     delta = matrix_create(1, ann->node_num_max);
+    dtnew = matrix_create(1, ann->node_num_max);
     dw    = matrix_create(ann->node_num_max, ann->node_num_max);
+    for (i=0; i<ann->layer_num-1; i++) {
+        copys[i] = matrix_create(ann->matrix[i]->rows, ann->matrix[i]->cols);
+        memcpy(copys[i]->data, ann->matrix[i]->data, ann->matrix[i]->rows * ann->matrix[i]->cols * sizeof(double));
+    }
 
     for (i=ann->layer_num-2; i>=0; i--) {
+        // calculate delta vector
         if (i == ann->layer_num-2) {
             for (j=0; j<ann->node_num_list[i+1]; j++) {
                 double outa = ann->nodeva[i+1][j];
@@ -198,22 +186,17 @@ void ann_backward(ANN *ann, double *target, int num, double rate)
             }
         } else {
             for (j=0; j<ann->node_num_list[i+1]; j++) {
-                double outa = ann->nodeva[i+1][j];
-                double value_err_total;
-                MATRIX matrix_err_weight;
-                MATRIX matrix_err_total;
-                matrix_err_weight.rows = ann->matrix[i+1]->cols;
-                matrix_err_weight.cols = 1;
-                matrix_err_weight.data = ann->matrix[i+1]->data + ann->matrix[i+1]->cols * j;
-                matrix_err_total .rows = 1;
-                matrix_err_total .cols = 1;
-                matrix_err_total .data = &value_err_total;
+                double outa = ann->nodeva[i+1][j], value_err_total;
+                MATRIX matrix_err_weight = { copys[i+1]->cols, 1, copys[i+1]->data + copys[i+1]->cols * j };
+                MATRIX matrix_err_total  = { 1, 1, &value_err_total };
                 matrix_multiply(&matrix_err_total, delta, &matrix_err_weight);
-                delta->data[j] = -1 * value_err_total * outa * (1 - outa);
+                dtnew->data[j] = value_err_total * outa * (1 - outa);
             }
+            memcpy(delta->data, dtnew->data, ann->node_num_list[i+1] * sizeof(double));
         }
         delta->cols = ann->node_num_list[i+1];
 
+        // calculate prev output vector
         prevo.rows = ann->node_num_list[i];
         prevo.cols = 1;
         prevo.data = ann->nodeva[i];
@@ -221,72 +204,129 @@ void ann_backward(ANN *ann, double *target, int num, double rate)
         dw->rows = ann->node_num_list[i + 0];
         dw->cols = ann->node_num_list[i + 1];
         matrix_multiply(dw, &prevo, delta);
-        matrix_scale(dw, -rate);
-        matrix_add(ann->matrix[i], dw);
+        matrix_adjust  (ann->matrix[i], dw, rate);
     }
+
     matrix_destroy(delta);
+    matrix_destroy(dtnew);
     matrix_destroy(dw   );
+    for (i=0; i<ann->layer_num-1; i++) {
+        matrix_destroy(copys[i]);
+    }
 }
 
-void ann_print_node(ANN *ann, int layer_start, int layer_end)
+void ann_print_node(ANN *ann, int start, int end)
 {
     int i, n;
     if (!ann) return;
-    for (i=layer_start; i<=layer_end && i>=0 && i<ann->layer_num; i++) {
+    for (i=start; i<=end && i>=0 && i<ann->layer_num; i++) {
         printf("\nlayer_%d: ", i);
         for (n=0; n<ann->node_num_list[i]; n++) {
-            printf("%-8.3f ", ann->nodeva[i][n]);
+            printf("%-8.5lf ", ann->nodeva[i][n]);
         }
         printf("\n");
     }
 }
 
-void ann_print_matrix(ANN *ann, int matrix_start, int matrix_end)
+void ann_print_matrix(ANN *ann, int start, int end)
 {
     int i;
     if (!ann) return;
-    for (i=matrix_start; i<=matrix_end && i>=0 && i<ann->layer_num-1; i++) {
+    for (i=start; i<=end && i>=0 && i<ann->layer_num-1; i++) {
         printf("\nmatrix_%d: ", i);
         matrix_print(ann->matrix[i]);
-//      printf("\n");
     }
+}
+
+double ann_total_loss(ANN *ann, double *target)
+{
+    double loss = 0;
+    int    i;
+    if (!ann) return 0;
+    for (i=0; i<ann->node_num_list[ann->layer_num-1]; i++) {
+        loss += 0.5 * pow(target[i] - ann->nodeva[ann->layer_num-1][i], 2);
+    }
+    return loss;
+}
+
+SAMPLE* sample_create(int inputn, int outputn)
+{
+    SAMPLE *sample = calloc(1, sizeof(SAMPLE) + (inputn + outputn) * sizeof(double));
+    if (sample) {
+        sample->input_num  = inputn;
+        sample->output_num = outputn;
+        sample->datain     = (double*)((uint8_t*)sample + sizeof(SAMPLE));
+        sample->dataout    = sample->datain + inputn;
+    }
+    return sample;
+}
+
+void sample_destroy(SAMPLE *sample)
+{
+    if (sample) free(sample);
+}
+
+static uint32_t get_tick_count(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
 int main(void)
 {
-    if (0) {
-        MATRIX *m1 = matrix_create(2, 3);
-        MATRIX *m2 = matrix_create(3, 2);
-        MATRIX *mr = matrix_create(2, 2);
+    double rate = 0.5, loss = 1;
+    int node_num_list[] = { 3, 5, 1 };
+    int bias_flg_list[] = { 1, 1, 0 };
+    int i, j, n = 0;
+    uint32_t tick;
+    ANN    *ann;
+    SAMPLE *samples[4];
 
-        m1->data[0] = 1;  m1->data[1] = 2;  m1->data[2] = 3;
-        m1->data[3] = 4;  m1->data[4] = 5;  m1->data[5] = 6;
-
-        m2->data[0] = 7;  m2->data[1] = 10;
-        m2->data[2] = 8;  m2->data[3] = 11;
-        m2->data[4] = 9;  m2->data[5] = 12;
-
-        matrix_multiply(mr, m1, m2);
-        matrix_print(m1);
-        matrix_print(m2);
-        matrix_print(mr);
-        matrix_destroy(m1);
-        matrix_destroy(m2);
-        matrix_destroy(mr);
+    ann = ann_create(3, node_num_list, bias_flg_list);
+    for (i=0; i<4; i++) {
+        samples[i] = sample_create(3, 1);
     }
 
-    if (1) {
-        int node_num_list[] = { 2, 5, 1 };
-        double data  [] = { 0, 0 };
-        double target[] = { 0 };
-        ANN *ann = ann_create(3, node_num_list, NULL);
-        ann_forward (ann, data  , 2);
-        ann_backward(ann, target, 1, 0.2);
-        ann_forward (ann, data  , 2);
-        ann_backward(ann, target, 1, 0.2);
-        ann_print_node  (ann, 0, 2);
-        ann_print_matrix(ann, 0, 1);
-        ann_destroy(ann);
+    samples[0]->datain [0] = 0;
+    samples[0]->datain [1] = 0;
+    samples[0]->dataout[0] = 0;
+
+    samples[1]->datain [0] = 0;
+    samples[1]->datain [1] = 1;
+    samples[1]->dataout[0] = 1;
+
+    samples[2]->datain [0] = 1;
+    samples[2]->datain [1] = 0;
+    samples[2]->dataout[0] = 1;
+
+    samples[3]->datain [0] = 1;
+    samples[3]->datain [1] = 1;
+    samples[3]->dataout[0] = 1;
+
+    tick = get_tick_count();
+    while (loss > 0.000001) {
+        loss = 0;
+        for (j=0; j<4; j++) {
+            ann_forward (ann, samples[j]->datain);
+            ann_backward(ann, samples[j]->dataout, rate);
+            loss += ann_total_loss(ann, samples[j]->dataout);
+        }
+        if (get_tick_count() - tick >= 1000) {
+            printf("%5d total loss: %lf\n", ++n, loss);
+            fflush(stdout);
+            tick += 1000;
+        }
+    }
+
+    for (i=0; i<4; i++) {
+        ann_forward(ann, samples[i]->datain);
+        ann_print_output(ann);
+    }
+
+    ann_destroy(ann);
+    for (i=0; i<4; i++) {
+        sample_destroy(samples[i]);
     }
     return 0;
 }
