@@ -275,7 +275,7 @@ static uint32_t get_tick_count(void)
 
 int main(void)
 {
-    double rate = 0.5, loss = 1;
+    double rate = 0.618, loss = 1;
     int node_num_list[] = { 3, 5, 1 };
     int bias_flg_list[] = { 1, 1, 0 };
     int i, j, n = 0;
@@ -313,7 +313,7 @@ int main(void)
             loss += ann_total_loss(ann, samples[j]->dataout);
         }
         if (get_tick_count() - tick >= 1000) {
-            printf("%5d total loss: %lf\n", ++n, loss);
+            printf("%5d. total loss: %lf\n", ++n, loss);
             fflush(stdout);
             tick += 1000;
         }
