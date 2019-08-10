@@ -125,9 +125,11 @@ void ann_backward(ANN *ann, double *target, double rate)
         ann->delta->cols = ann->node_num_list[i+1];
 
         // make a copy of weight matrix
-        ann->copy->rows = ann->wmatrix[i].rows;
-        ann->copy->cols = ann->wmatrix[i].cols;
-        memcpy(ann->copy->data, ann->wmatrix[i].data, ann->copy->rows * ann->copy->cols);
+        if (i) {
+            ann->copy->rows = ann->wmatrix[i].rows;
+            ann->copy->cols = ann->wmatrix[i].cols;
+            memcpy(ann->copy->data, ann->wmatrix[i].data, ann->copy->rows * ann->copy->cols * sizeof(double));
+        }
 
         // calculate prev output vector
         prevo.rows = ann->node_num_list[i];
@@ -263,8 +265,8 @@ int main(void)
     }
 
     node_num_list[0] = samples->num_input;
-    node_num_list[1] = 50 + 1; // 50 nodes + 1 bias
-    node_num_list[2] = 7  + 1; //  7 nodes + 1 bias
+    node_num_list[1] = 64 + 1; // 64 nodes + 1 bias
+    node_num_list[2] = 16 + 1; // 16 nodes + 1 bias
     node_num_list[3] = samples->num_output;
     bias_flg_list[0] = 1;
     bias_flg_list[1] = 1;
