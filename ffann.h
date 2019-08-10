@@ -11,6 +11,11 @@ typedef struct {
     double *nodeval[ANN_MAX_LAYER - 0];
     MATRIX  wmatrix[ANN_MAX_LAYER - 1];
     int     node_num_max;
+
+    MATRIX *delta;
+    MATRIX *dtnew;
+    MATRIX *copy;
+    MATRIX *dw;
 } ANN;
 
 ANN*    ann_create  (int laynum, int *node_num_list, int *bias_flg_list);

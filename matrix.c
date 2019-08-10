@@ -3,7 +3,7 @@
 
 MATRIX* matrix_create(int rows, int cols)
 {
-    MATRIX *matrix = calloc(1, sizeof(MATRIX) + rows * cols * sizeof(double));
+    MATRIX *matrix = malloc(sizeof(MATRIX) + rows * cols * sizeof(double));
     if (!matrix) {
         printf("matrix_create: failed to allocate memory !\n");
         return NULL;

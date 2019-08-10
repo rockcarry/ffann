@@ -3,7 +3,7 @@
 
 SAMPLES* samples_create(int sampn, int inputn, int outputn)
 {
-    SAMPLES *samples = calloc(1, sizeof(SAMPLES) + sampn * (inputn + outputn) * sizeof(double));
+    SAMPLES *samples = malloc(sizeof(SAMPLES) + sampn * (inputn + outputn) * sizeof(double));
     if (samples) {
         samples->num_samples = sampn;
         samples->num_input   = inputn;
