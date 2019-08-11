@@ -66,7 +66,7 @@ void ann_destroy(ANN *ann)
 
 void ann_forward(ANN *ann, double *input)
 {
-    MATRIX mi, mo;
+    MATRIX mi = {1}, mo = {1};
     int    i, n;
 
     if (!ann || !input) {
@@ -78,10 +78,8 @@ void ann_forward(ANN *ann, double *input)
     if (ann->bias_flg_list[0]) ann->nodeval[0][ann->node_num_list[0] - 1] = ann->bias_flg_list[0];
 
     for (i=0; i<ann->layer_num-1; i++) {
-        mi.rows = 1;
         mi.cols = ann->node_num_list[i+0];
         mi.data = ann->nodeval[i+0];
-        mo.rows = 1;
         mo.cols = ann->node_num_list[i+1];
         mo.data = ann->nodeval[i+1];
         matrix_multiply(&mo, &mi, &ann->wmatrix[i]);
@@ -92,8 +90,8 @@ void ann_forward(ANN *ann, double *input)
 
 void ann_backward(ANN *ann, double *target, double rate)
 {
-    MATRIX prevo;
-    int i, j;
+    MATRIX prevo = { 1, 1 };
+    int    i, j, k;
 
     if (!ann || ann->layer_num < 2 || !target) {
         printf("ann_backward: invalid ann or target !\n");
@@ -106,19 +104,18 @@ void ann_backward(ANN *ann, double *target, double rate)
     if (!ann->dw   ) ann->dw    = matrix_create(ann->node_num_max, ann->node_num_max);
 
     for (i=ann->layer_num-2; i>=0; i--) {
+        double *outa = ann->nodeval[i+1], totalerr;
         // calculate delta vector
         if (i == ann->layer_num-2) { // for output layer
-            for (j=0; j<ann->node_num_list[i+1]; j++) {
-                double outa = ann->nodeval[i+1][j];
-                ann->delta->data[j] = -1 * (target[j] - outa) * outa * (1 - outa);
+            for (j=0; j<ann->node_num_list[i+1]; j++,outa++) {
+                ann->delta->data[j] = -1 * (target[j] - *outa) * *outa * (1 - *outa);
             }
         } else { // for hidden layer
-            for (j=0; j<ann->node_num_list[i+1]; j++) {
-                double outa = ann->nodeval[i+1][j], value_err_total;
-                MATRIX matrix_err_weight = { ann->copy->cols, 1, ann->copy->data + ann->copy->cols * j };
-                MATRIX matrix_err_total  = { 1, 1, &value_err_total };
-                matrix_multiply(&matrix_err_total, ann->delta, &matrix_err_weight);
-                ann->dtnew->data[j] = value_err_total * outa * (1 - outa);
+            for (j=0; j<ann->node_num_list[i+1]; j++,outa++) {
+                for (totalerr=0,k=0; k<ann->copy->cols; k++) {
+                    totalerr += ann->delta->data[k] * ann->copy->data[j*ann->copy->cols+k];
+                }
+                ann->dtnew->data[j] = totalerr * *outa * (1 - *outa);
             }
             memcpy(ann->delta->data, ann->dtnew->data, ann->node_num_list[i+1] * sizeof(double));
         }
@@ -133,7 +130,6 @@ void ann_backward(ANN *ann, double *target, double rate)
 
         // calculate prev output vector
         prevo.rows = ann->node_num_list[i];
-        prevo.cols = 1;
         prevo.data = ann->nodeval[i];
 
         ann->dw->rows = ann->node_num_list[i + 0];
@@ -294,7 +290,7 @@ int main(void)
             fflush(stdout);
             tick += 1000;
         }
-    } while (err_max > 0.0001);
+    } while (err_max > 0.00001);
 
     printf("\n");
     for (i=0; i<samples->num_samples; i++) {
