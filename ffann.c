@@ -250,10 +250,10 @@ int main(int argc, char *argv[])
     ANN     *ann;
     SAMPLES *samples;
 
-    samples = samples_create(32, 11 * 22 + 1, 1);
+    samples = samples_create(64, 11 * 22 + 1, 1);
     for (i=0; i<samples->num_samples; i++) {
         char name[256]; BMP mybmp;
-        snprintf(name, sizeof(name), "pictures/asc_0%d.bmp", '0' + i);
+        snprintf(name, sizeof(name), "pictures/asc_%03d.bmp", '0' + i);
         bmp_load(&mybmp, name);
         for (j=0; j<samples->num_input; j++) {
             samples_get_input(samples, i)[j] = bmp_getpixel(&mybmp, j);
@@ -264,8 +264,8 @@ int main(int argc, char *argv[])
 
     if (argc < 2) {
         node_num_list[0] = samples->num_input;
-        node_num_list[1] = 32 + 1; // 32 nodes + 1 bias
-        node_num_list[2] = 32 + 1; // 32 nodes + 1 bias
+        node_num_list[1] = 64 + 1; // 64 nodes + 1 bias
+        node_num_list[2] = 64 + 1; // 64 nodes + 1 bias
         node_num_list[3] = samples->num_output;
         bias_flg_list[0] = 1;
         bias_flg_list[1] = 1;
