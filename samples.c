@@ -29,6 +29,7 @@ SAMPLES* samples_load(char *file)
     if (fp) {
         fseek(fp, 0, SEEK_END);
         filesize = ftell(fp);
+        fseek(fp, 0, SEEK_SET);
         samples  = malloc(filesize);
         if (samples) {
             fread(samples, 1, filesize, fp);
@@ -51,10 +52,10 @@ void samples_save(SAMPLES *samples, char *file)
         printf("samples_save: invalid samples or file !\n");
         return;
     }
-    datasize = samples->num_samples * (samples->num_input + samples->num_output) * sizeof(double);
+    datasize = samples->num_samples * (samples->num_input + samples->num_output);
     fp = fopen(file, "wb");
     if (fp) {
-        fwrite(samples, 1, sizeof(SAMPLES) + datasize, fp);
+        fwrite(samples, 1, sizeof(SAMPLES) + datasize * sizeof(double), fp);
         fclose(fp);
     } else {
         printf("samples_save: failed to open file %s !\n", file);
