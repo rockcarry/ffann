@@ -34,8 +34,8 @@ int main(int argc, char *argv[])
 
     if (argc < 2) {
         node_num_list[0] = samples->num_input;
-        node_num_list[1] = 32 + 1; // 32 nodes + 1 bias
-        node_num_list[2] = 16 + 1; // 16 nodes + 1 bias
+        node_num_list[1] = 64 + 1; // 64 nodes + 1 bias
+        node_num_list[2] = 32 + 1; // 32 nodes + 1 bias
         node_num_list[3] = samples->num_output;
         bias_flg_list[0] = 1;
         bias_flg_list[1] = 1;

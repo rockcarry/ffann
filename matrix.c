@@ -28,7 +28,7 @@ void matrix_multiply(MATRIX *mr, MATRIX *m1, MATRIX *m2)
         return;
     }
     if (m1->cols != m2->rows || mr->rows != m1->rows || mr->cols != m2->cols) {
-        printf("matrix_multiply: invalid rows or cols !\n");
+        printf("matrix_multiply: invalid rows or cols ! (%d,%d) (%d,%d) (%d,%d)\n", mr->rows, mr->cols, m1->rows, m1->cols, m2->rows, m2->cols);
         return;
     }
     d1 = m1->data;
@@ -53,7 +53,7 @@ void matrix_adjust(MATRIX *wt, MATRIX *dw, double rate)
         return;
     }
     if (wt->rows != dw->rows || wt->cols != dw->cols) {
-        printf("matrix_adjust: invalid rows or cols !\n");
+        printf("matrix_adjust: invalid rows or cols ! (%d,%d) (%d,%d)\n", wt->rows, wt->cols, dw->rows, dw->cols);
         return;
     }
     for (i=0,n=wt->rows*wt->cols; i<n; i++) {

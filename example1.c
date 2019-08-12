@@ -2,7 +2,7 @@
 
 int main(void)
 {
-    int node_num_list[ANN_MAX_LAYER] = { 3, 3, 1 };
+    int node_num_list[ANN_MAX_LAYER] = { 3, 4, 1 };
     int bias_flg_list[ANN_MAX_LAYER] = { 1, 1, 0 };
     double learn_rate = 0.5, total_error;
     double input_samples [4][2] = { { 0, 0 }, { 0, 1 }, { 1, 0 }, { 1, 1 } };
@@ -14,20 +14,19 @@ int main(void)
     tick= get_tick_count();
     sec = 0;
 
-    while (1) {
+    do {
         total_error = 0;
         for (i=0; i<4; i++) {
             ann_forward (ann, input_samples [i]);
             ann_backward(ann, output_samples[i], learn_rate);
             total_error += ann_error(ann, output_samples[i]);
         }
-        if (total_error < 0.000001) break;
         if (get_tick_count() > tick + 1000) {
             tick += 1000;
             printf("%5ds, total_error: %.7lf\n", ++sec, total_error);
             fflush(stdout);
         }
-    }
+    } while (total_error > 0.000001);
 
     printf("\n");
     for (i=0; i<4; i++) {
