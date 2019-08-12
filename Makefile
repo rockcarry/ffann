@@ -13,7 +13,7 @@ EXES = \
     example2.exe \
     example3.exe
 
-LIB = libfaan.a
+LIB = libffaan.a
 
 # ±‡“ÎπÊ‘Ú
 all : $(LIB) $(EXES)
