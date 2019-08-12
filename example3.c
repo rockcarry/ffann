@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
                         ann_backward(ann, samples_get_output(samples, i * 1000 + j), learn_rate);
                         batch_error += ann_error(ann, samples_get_output(samples, i * 1000 + j));
                     }
-                    printf("round: %d, batch: %d, batch_error: %lf, target_error: %lf, learn_rate: %lf\n", r, i, batch_error, target_error, learn_rate);
+                    printf("round: %d, batch: %d, learn_rate: %lf, target_error: %lf, batch_error: %lf\n", r, i, learn_rate, target_error, batch_error);
                     fflush(stdout);
                 } while (batch_error > target_error);
             }
@@ -63,12 +63,6 @@ int main(int argc, char *argv[])
         ann_save(ann, "example3.bin");
     } else {
         ann = ann_load(argv[1]);
-    }
-
-    printf("\n");
-    for (i=0; i<samples->num_samples; i++) {
-        ann_forward(ann, samples_get_input(samples, i));
-        printf("output: %3d, %lf\n", (int)(ann_output(ann)[0] * samples->num_samples + 0.5), ann_output(ann)[0]);
     }
 
     ann_destroy(ann);
