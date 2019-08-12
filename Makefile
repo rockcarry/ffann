@@ -1,0 +1,34 @@
+CC      = gcc
+CCFLAGS = -Wall -Os -lm
+AR      = ar
+
+OBJS = \
+    stdafx.o \
+    matrix.o \
+    bitmap.o \
+    samples.o\
+    ffann.o
+
+EXES = \
+    example1.exe
+
+LIB = libfaan.a
+
+# ±‡“ÎπÊ‘Ú
+all : $(LIB) $(EXES)
+
+%.o : %.c %.h
+	$(CC) $(CCFLAGS) -c $<
+
+$(LIB) : $(OBJS)
+	$(AR) rcs $@ $(OBJS)
+
+%.exe : %.c $(LIB)
+	$(CC) -o $@ $< $(LIB)
+
+clean :
+	rm -f *.o
+	rm -f *.a
+	rm -f *.exe
+
+
