@@ -3,14 +3,15 @@ CCFLAGS = -Wall -Os -lm
 AR      = ar
 
 OBJS = \
-    stdafx.o \
     matrix.o \
     bitmap.o \
     samples.o\
     ffann.o
 
 EXES = \
-    example1.exe
+    example1.exe \
+    example2.exe \
+    example3.exe
 
 LIB = libfaan.a
 

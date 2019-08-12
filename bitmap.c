@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "ffann.h"
 #include "bitmap.h"
 
 // 内部类型定义

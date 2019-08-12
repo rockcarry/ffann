@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "ffann.h"
 
 int main(void)

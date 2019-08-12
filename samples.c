@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "ffann.h"
 #include "samples.h"
 
 SAMPLES* samples_create(int sampn, int inputn, int outputn)

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "ffann.h"
 #include "matrix.h"
 
 MATRIX* matrix_create(int rows, int cols)
