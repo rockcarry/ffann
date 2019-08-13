@@ -252,8 +252,8 @@ void ann_dump(ANN *ann, char *file)
         for (i=0; i<ann->layer_num-1; i++) {
             fprintf(fp, "- matrix_%d:", i);
             matrix_print(&ann->wmatrix[i], fp);
-            fprintf(fp, "\n");
         }
+        fprintf(fp, "\n");
         if (file) fclose(fp);
     }
 }
