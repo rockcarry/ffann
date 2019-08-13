@@ -9,6 +9,7 @@ OBJS = \
     ffann.o
 
 EXES = \
+    example0.exe \
     example1.exe \
     example2.exe \
     example3.exe
