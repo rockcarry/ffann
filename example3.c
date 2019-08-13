@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
     int node_num_list[ANN_MAX_LAYER] = {};
     int bias_flg_list[ANN_MAX_LAYER] = {};
     double learn_rate, batch_error, target_error;
-    uint32_t i, j, r;
+    uint32_t tick, i, j, r;
     ANN     *ann;
     SAMPLES *samples;
     FILE    *fp1, *fp2;
@@ -44,6 +44,7 @@ int main(int argc, char *argv[])
         ann  = ann_create(4, node_num_list, bias_flg_list);
         learn_rate   = 0.2;
         target_error = 100;
+        tick         = get_tick_count();
         for (r=0; r<1000; r++) {
             for (i=0; i<samples->num_samples/1000; i++) {
                 do {
@@ -53,7 +54,8 @@ int main(int argc, char *argv[])
                         ann_backward(ann, samples_get_output(samples, i * 1000 + j), learn_rate);
                         batch_error += ann_error(ann, samples_get_output(samples, i * 1000 + j));
                     }
-                    printf("round: %d, batch: %d, learn_rate: %lf, target_error: %lf, batch_error: %lf\n", r, i, learn_rate, target_error, batch_error);
+                    printf("%5ds round: %d, batch: %d, learn_rate: %lf, target_error: %lf, batch_error: %lf\n",
+                           (get_tick_count() - tick) / 1000, r, i, learn_rate, target_error, batch_error);
                     fflush(stdout);
                 } while (batch_error > target_error);
             }

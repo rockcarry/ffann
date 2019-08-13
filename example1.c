@@ -35,7 +35,7 @@ int main(void)
     }
 
     ann_save(ann, "example1.bin");
-    ann_dump(ann);
+    ann_dump(ann, NULL);
     ann_destroy(ann);
     return 0;
 }

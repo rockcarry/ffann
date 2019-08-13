@@ -90,7 +90,7 @@ void ann_forward(ANN *ann, double *input)
     }
 
     memcpy(ann->nodeval[0], input, ann->node_num_list[0] * sizeof(double));
-    if (ann->bias_flg_list[0]) ann->nodeval[0][ann->node_num_list[0] - 1] = ann->bias_flg_list[0];
+    if (ann->bias_flg_list[0]) ann->nodeval[0][ann->node_num_list[0]-1] = ann->bias_flg_list[0];
 
     for (i=0; i<ann->layer_num-1; i++) {
         mi.cols = ann->node_num_list[i+0];
@@ -99,7 +99,7 @@ void ann_forward(ANN *ann, double *input)
         mo.data = ann->nodeval[i+1];
         matrix_multiply(&mo, &mi, &ann->wmatrix[i]);
         for (n=0; n<mo.cols; n++) mo.data[n] = sigmoid(mo.data[n]);
-        if (ann->bias_flg_list[i+1]) ann->nodeval[i+1][ann->node_num_list[i+1] - 1] = ann->bias_flg_list[i+1];
+        if (ann->bias_flg_list[i+1]) ann->nodeval[i+1][ann->node_num_list[i+1]-1] = ann->bias_flg_list[i+1];
     }
 }
 
@@ -220,36 +220,41 @@ void ann_save(ANN *ann, char *file)
     }
 }
 
-void ann_dump(ANN *ann)
+void ann_dump(ANN *ann, char *file)
 {
+    FILE *fp = stdout;
     int i, j;
     if (!ann) return;
-    printf("\ndump ann info:\n");
-    printf("- layer_num: %d\n", ann->layer_num);
-    printf("- node_num_list: ");
-    for (i=0; i<ann->layer_num; i++) {
-        printf("%d ", ann->node_num_list[i]);
-    }
-    printf("\n");
-
-    printf("- bias_flg_list: ");
-    for (i=0; i<ann->layer_num; i++) {
-        printf("%d ", ann->bias_flg_list[i]);
-    }
-    printf("\n\n");
-
-    for (i=0; i<ann->layer_num; i++) {
-        printf("- layer_%d: ", i);
-        for (j=0; j<ann->node_num_list[i]; j++) {
-            printf("%-8.5lf ", ann->nodeval[i][j]);
+    if (file) fp = fopen(file, "wb");
+    if (fp) {
+        fprintf(fp, "\ndump ann info:\n");
+        fprintf(fp, "- layer_num: %d\n", ann->layer_num);
+        fprintf(fp, "- node_num_list: ");
+        for (i=0; i<ann->layer_num; i++) {
+            fprintf(fp, "%d ", ann->node_num_list[i]);
         }
-        printf("\n\n");
-    }
+        fprintf(fp, "\n");
 
-    for (i=0; i<ann->layer_num-1; i++) {
-        printf("- matrix_%d:", i);
-        matrix_print(&ann->wmatrix[i]);
-        printf("\n");
+        fprintf(fp, "- bias_flg_list: ");
+        for (i=0; i<ann->layer_num; i++) {
+            fprintf(fp, "%d ", ann->bias_flg_list[i]);
+        }
+        fprintf(fp, "\n\n");
+
+        for (i=0; i<ann->layer_num; i++) {
+            fprintf(fp, "- layer_%d: ", i);
+            for (j=0; j<ann->node_num_list[i]; j++) {
+                fprintf(fp, "%-8.5lf ", ann->nodeval[i][j]);
+            }
+            fprintf(fp, "\n\n");
+        }
+
+        for (i=0; i<ann->layer_num-1; i++) {
+            fprintf(fp, "- matrix_%d:", i);
+            matrix_print(&ann->wmatrix[i], fp);
+            fprintf(fp, "\n");
+        }
+        if (file) fclose(fp);
     }
 }
 

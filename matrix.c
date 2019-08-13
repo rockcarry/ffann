@@ -61,15 +61,16 @@ void matrix_adjust(MATRIX *wt, MATRIX *dw, double rate)
     }
 }
 
-void matrix_print(MATRIX *m)
+void matrix_print(MATRIX *m, FILE *fp)
 {
     int r, c;
-    printf("\n");
+    fp = fp ? fp : stdout;
+    fprintf(fp, "\n");
     for (r=0; r<m->rows; r++) {
         for (c=0; c<m->cols; c++) {
-            printf("%-8.5lf ", m->data[c + r * m->cols]);
+            fprintf(fp, "%-8.5lf ", m->data[c + r * m->cols]);
         }
-        printf("\n");
+        fprintf(fp, "\n");
     }
-    printf("\n");
+    fprintf(fp, "\n");
 }

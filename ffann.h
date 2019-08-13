@@ -55,7 +55,7 @@ void    ann_backward(ANN *ann, double *target, double rate);
 double  ann_error   (ANN *ann, double *target);
 ANN*    ann_load    (char*file);
 void    ann_save    (ANN *ann, char *file);
-void    ann_dump    (ANN *ann);
+void    ann_dump    (ANN *ann, char *file);
 #define ann_output(ann) ((ann)->nodeval[(ann)->layer_num-1])
 
 #endif
