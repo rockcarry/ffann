@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     ANN     *ann;
     SAMPLES *samples;
 
-    samples = samples_create(64, 11 * 22 + 1, 1);
+    samples = samples_create(64, 11 * 22, 1);
     for (i=0; i<samples->num_samples; i++) {
         char name[256]; BMP mybmp;
         snprintf(name, sizeof(name), "pictures/asc_%03d.bmp", '0' + i);

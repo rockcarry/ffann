@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     SAMPLES *samples;
     FILE    *fp1, *fp2;
 
-    samples = samples_create(60*1000, 28 * 28 + 1, 10);
+    samples = samples_create(60*1000, 28 * 28, 10);
     fp1     = fopen("mnist/train-images.idx3-ubyte", "rb");
     fp2     = fopen("mnist/train-labels.idx1-ubyte", "rb");
     if (fp1 && fp2) {
@@ -22,10 +22,10 @@ int main(int argc, char *argv[])
             fread( buf, 28 * 28, 1, fp1);
             fread(&out, 1, 1, fp2);
             for (j=0; j<28*28; j++) {
-                samples_get_input(samples, i)[j] = (buf[j] - 128) / 128;
+                samples_get_input (samples, i)[j] = (buf[j] - 128) / 128;
             }
             for (j=0; j<10; j++) {
-                samples_get_output(samples, i)[j] = !!(out == j);
+                samples_get_output(samples, i)[j] = (out == j);
             }
         }
     }
