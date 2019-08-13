@@ -89,7 +89,7 @@ void ann_forward(ANN *ann, double *input)
         return;
     }
 
-    memcpy(ann->nodeval[0], input, ann->node_num_list[0] * sizeof(double));
+    memcpy(ann->nodeval[0], input, (ann->node_num_list[0] - !!ann->bias_flg_list[0])  * sizeof(double));
     if (ann->bias_flg_list[0]) ann->nodeval[0][ann->node_num_list[0]-1] = ann->bias_flg_list[0];
 
     for (i=0; i<ann->layer_num-1; i++) {
