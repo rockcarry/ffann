@@ -6,15 +6,27 @@
 #include "utils.h"
 #include "ffann.h"
 
-static float activate(float x) {
-#if 1
-    return 1 / (1 + expf(-x)); // sigmoid
-#else
-    return x > 0 ? x : 0;      // relu
-#endif
+static float activate_forward(int type, float x)
+{
+    switch (type) {
+    case FANN_ACTIVATE_SIGMOID: return 1 / (1 + expf(-x));
+    case FANN_ACTIVATE_RELU:    return x > 0 ? x : 0;
+    case FANN_ACTIVATE_LEAKY:   return x > 0 ? x : 0.01 * x;
+    }
+    return 0;
 }
 
-ANN* ann_create(int layer_num, int *node_num_list)
+static float activate_backward(int type, float xi, float xo)
+{
+    switch (type) {
+    case FANN_ACTIVATE_SIGMOID: return xo * (1 - xo);
+    case FANN_ACTIVATE_RELU:    return xi > 0 ? 1 : 0;
+    case FANN_ACTIVATE_LEAKY:   return xi > 0 ? 1 : 0.01;
+    }
+    return 0;
+}
+
+ANN* ann_create(int layer_num, int *node_num_list, int *activate_list)
 {
     int n, i;
     if (layer_num < 2 || !node_num_list) {
@@ -23,8 +35,8 @@ ANN* ann_create(int layer_num, int *node_num_list)
     }
 
     layer_num = MIN(layer_num, ANN_MAX_LAYER);
-    for (n = node_num_list[0], i = 1; i < layer_num; i++) {
-        n += node_num_list[i] * 2; // nodevals & biases
+    for (n = node_num_list[0] * 2, i = 1; i < layer_num; i++) {
+        n += node_num_list[i] * 3; // nodein & nodeout & biases
         n += node_num_list[i - 1] * node_num_list[i - 0]; // weights
     }
 
@@ -33,17 +45,19 @@ ANN* ann_create(int layer_num, int *node_num_list)
 
     ann->layer_num = layer_num;
     if (node_num_list) memcpy(ann->node_num_list, node_num_list, layer_num * sizeof(int));
+    if (activate_list) memcpy(ann->activate_list, activate_list, layer_num * sizeof(int));
 
     float *pbuf = (float*)(ann + 1);
     for (i = 0; i < layer_num; i++) {
-        ann->nodeval[i] = pbuf; pbuf += node_num_list[i];
+        ann->nodei[i] = pbuf; pbuf += node_num_list[i];
+        ann->nodeo[i] = pbuf; pbuf += node_num_list[i];
         ann->node_num_max = MAX(ann->node_num_max, node_num_list[i]);
         if (i > 0) {
-            ann->biasval[i]      = pbuf;
-            ann->wmatrix[i].rows = node_num_list[i - 1];
-            ann->wmatrix[i].cols = node_num_list[i - 0];
-            ann->wmatrix[i].data = pbuf + node_num_list[i - 0];
-            for (n = 0; n < (ann->wmatrix[i].rows + 1) * ann->wmatrix[i].cols; n++) { // rand init bias & weight matrixs
+            ann->bias[i]        = pbuf;
+            ann->weight[i].rows = node_num_list[i - 1];
+            ann->weight[i].cols = node_num_list[i - 0];
+            ann->weight[i].data = pbuf + node_num_list[i - 0];
+            for (n = 0; n < (ann->weight[i].rows + 1) * ann->weight[i].cols; n++) { // rand init bias & weight matrixs
                 pbuf[n] = (float)((rand() % RAND_MAX) - (RAND_MAX / 2.0)) / (RAND_MAX / 2.0);
             }
             pbuf += n;
@@ -65,23 +79,23 @@ void ann_destroy(ANN *ann)
 void ann_forward(ANN *ann, float *input)
 {
     MATRIX mi = {1}, mo = {1}, mb = {1};
-    int    i, n;
+    int    i, j;
     if (!ann || !input) {
         printf("ann_forward: invalid ann or input !\n");
         return;
     }
 
-    memcpy(ann->nodeval[0], input, ann->node_num_list[0] * sizeof(float));
+    memcpy(ann->nodeo[0], input, ann->node_num_list[0] * sizeof(float));
     for (i = 1; i < ann->layer_num; i++) {
         mi.cols = ann->node_num_list[i - 1];
-        mi.data = ann->nodeval[i - 1];
+        mi.data = ann->nodeo[i - 1];
         mo.cols = ann->node_num_list[i - 0];
-        mo.data = ann->nodeval[i - 0];
+        mo.data = ann->nodei[i - 0];
         mb.cols = ann->node_num_list[i - 0];
-        mb.data = ann->biasval[i - 0];
-        matrix_multiply(&mo, &mi, &ann->wmatrix[i]);
+        mb.data = ann->bias [i - 0];
+        matrix_multiply(&mo, &mi, &ann->weight[i]);
         matrix_adjust  (&mo, &mb, 1);
-        for (n = 0; n < mo.cols; n++) mo.data[n] = activate(mo.data[n]);
+        for (j = 0; j < ann->node_num_list[i]; j++) ann->nodeo[i][j] = activate_forward(ann->activate_list[i], ann->nodei[i][j]);
     }
 }
 
@@ -100,30 +114,33 @@ void ann_backward(ANN *ann, float *target, float rate)
     if (!ann->dw   ) ann->dw    = matrix_create(ann->node_num_max, ann->node_num_max);
 
     // calculate output layer errors
-    float *outa = ann->nodeval[ann->layer_num - 1];
-    for (j = 0; j < ann->node_num_list[ann->layer_num - 1]; j++) ann->error->data[j] = outa[j] - target[j];
+    float *nodei = ann->nodei[ann->layer_num - 1];
+    float *nodeo = ann->nodeo[ann->layer_num - 1];
+    for (j = 0; j < ann->node_num_list[ann->layer_num - 1]; j++) ann->error->data[j] = nodeo[j] - target[j];
 
     for (i = ann->layer_num - 1; i > 0; i--) {
-        outa = ann->nodeval[i];
-        for (j = 0; j < ann->node_num_list[i]; j++) ann->delta->data[j] = ann->error->data[j] * outa[j] * (1 - outa[j]); // calculate current layer deltas
+        nodei = ann->nodei[i], nodeo = ann->nodeo[i];
+        for (j = 0; j < ann->node_num_list[i]; j++) { // calculate current layer deltas
+            ann->delta->data[j] = ann->error->data[j] * activate_backward(ann->activate_list[i], nodei[j], nodeo[j]);
+        }
 
-        ann->error->rows = ann->wmatrix[i].rows;
-        mat.rows         = ann->wmatrix[i].cols;
+        ann->error->rows = ann->weight[i].rows;
+        mat.rows         = ann->weight[i].cols;
         mat.cols         = 1;
         mat.data         = ann->delta->data;
-        matrix_multiply(ann->error, &ann->wmatrix[i], &mat); // calculate current layer errors
+        matrix_multiply(ann->error, &ann->weight[i], &mat); // calculate current layer errors
 
         // calculate weight gradient and update weights
-        ann->dw->rows    = ann->wmatrix[i].rows;
-        ann->dw->cols    = ann->wmatrix[i].cols;
+        ann->dw->rows    = ann->weight[i].rows;
+        ann->dw->cols    = ann->weight[i].cols;
         mat.rows         = ann->dw->rows;
-        mat.data         = ann->nodeval[i - 1];
+        mat.data         = ann->nodeo[i - 1];
         ann->delta->cols = ann->dw->cols;
         matrix_multiply(ann->dw, &mat, ann->delta);
-        matrix_adjust(&ann->wmatrix[i], ann->dw, -rate);
+        matrix_adjust(&ann->weight[i], ann->dw, -rate);
 
         // calculate bias gradient and update biases
-        mat.rows = 1, mat.cols = ann->delta->cols, mat.data = ann->biasval[i];
+        mat.rows = 1, mat.cols = ann->delta->cols, mat.data = ann->bias[i];
         matrix_adjust(&mat, ann->delta, -rate);
     }
 }
@@ -134,7 +151,7 @@ float ann_error(ANN *ann, float *target)
     int   i;
     if (!ann) return 0;
     for (i = 0; i < ann->node_num_list[ann->layer_num - 1]; i++) {
-        loss += 0.5 * pow(target[i] - ann->nodeval[ann->layer_num - 1][i], 2);
+        loss += 0.5 * pow(target[i] - ann->nodeo[ann->layer_num - 1][i], 2);
     }
     return loss;
 }
@@ -155,10 +172,11 @@ ANN* ann_load(char *file)
     fread(ann, 1, filesize, fp);
     float *pdata = (float*)(ann + 1);
     for (i = 0; i < ann->layer_num; i++) {
-        ann->nodeval[i] = pdata; pdata += ann->node_num_list[i];
+        ann->nodei[i] = pdata; pdata += ann->node_num_list[i];
+        ann->nodeo[i] = pdata; pdata += ann->node_num_list[i];
         if (i > 0) {
-            ann->biasval[i]      = pdata; pdata += ann->node_num_list[i];
-            ann->wmatrix[i].data = pdata; pdata += ann->wmatrix[i].rows * ann->wmatrix[i].cols;
+            ann->bias[i] = pdata; pdata += ann->node_num_list[i];
+            ann->weight[i].data = pdata; pdata += ann->weight[i].rows * ann->weight[i].cols;
         }
     }
     ann->delta = ann->error = ann->dw = NULL;
@@ -191,8 +209,8 @@ void ann_dump(ANN *ann, char *file)
     if (file) fp = fopen(file, "wb");
     if (fp) {
         fprintf(fp, "dump ann info:\n");
-        fprintf(fp, "- layer_num: %d\n", ann->layer_num);
-        fprintf(fp, "- node_num_list: ");
+        fprintf(fp, "layer_num: %d\n", ann->layer_num);
+        fprintf(fp, "node_num_list: ");
         for (i = 0; i < ann->layer_num; i++) {
             fprintf(fp, "%d ", ann->node_num_list[i]);
         }
@@ -200,17 +218,22 @@ void ann_dump(ANN *ann, char *file)
 
         for (i = 0; i < ann->layer_num; i++) {
             if (i > 0) {
-                fprintf(fp, "- matrix_%d:", i);
-                matrix_dump(&ann->wmatrix[i], fp);
-                fprintf(fp, "- bias___%d: ", i);
+                fprintf(fp, "weight_%d:", i);
+                matrix_dump(&ann->weight[i], fp);
+                fprintf(fp, "bias___%d: ", i);
                 for (j = 0; j < ann->node_num_list[i]; j++) {
-                    fprintf(fp, "%8.5f ", ann->biasval[i][j]);
+                    fprintf(fp, "%8.5f ", ann->bias[i][j]);
                 }
                 fprintf(fp, "\n\n");
             }
-            fprintf(fp, "- layer__%d: ", i);
+            fprintf(fp, "nodei__%d: ", i);
             for (j = 0; j < ann->node_num_list[i]; j++) {
-                fprintf(fp, "%8.5f ", ann->nodeval[i][j]);
+                fprintf(fp, "%8.5f ", ann->nodei[i][j]);
+            }
+            fprintf(fp, "\n\n");
+            fprintf(fp, "nodeo__%d: ", i);
+            for (j = 0; j < ann->node_num_list[i]; j++) {
+                fprintf(fp, "%8.5f ", ann->nodeo[i][j]);
             }
             fprintf(fp, "\n\n");
         }
