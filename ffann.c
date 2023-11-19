@@ -53,12 +53,14 @@ ANN* ann_create(int layer_num, int *node_num_list, int *activate_list)
         ann->nodeo[i] = pbuf; pbuf += node_num_list[i];
         ann->node_num_max = MAX(ann->node_num_max, node_num_list[i]);
         if (i > 0) {
-            ann->bias[i]        = pbuf;
+            ann->bias[i] = pbuf;
+            for (n = 0; n < node_num_list[i]; n++) *pbuf++ = ann->activate_list[i] == 0 ? 1 : 0.01; // biases init
             ann->weight[i].rows = node_num_list[i - 1];
             ann->weight[i].cols = node_num_list[i - 0];
-            ann->weight[i].data = pbuf + node_num_list[i - 0];
-            for (n = 0; n < (ann->weight[i].rows + 1) * ann->weight[i].cols; n++) { // rand init bias & weight matrixs
-                pbuf[n] = (float)((rand() % RAND_MAX) - (RAND_MAX / 2.0)) / (RAND_MAX / 2.0);
+            ann->weight[i].data = pbuf;
+            for (n = 0; n < ann->weight[i].rows * ann->weight[i].cols; n++) { // xavier weights init
+                float v = sqrtf(6.0 / (ann->weight[i].rows + ann->weight[i].cols));
+                pbuf[n] = v * (float)((rand() % RAND_MAX) - (RAND_MAX / 2.0)) / (RAND_MAX / 2.0);
             }
             pbuf += n;
         }
@@ -158,10 +160,11 @@ float ann_error(ANN *ann, float *target)
 
 ANN* ann_load(char *file)
 {
-    int filesize, i;
+    int filesize, ret, i;
     FILE * fp = fopen(file, "rb");
     if (!fp) { printf("ann_load: failed to open file %s !\n", file); return NULL; }
 
+    (void)ret;
     fseek(fp, 0, SEEK_END);
     filesize = ftell(fp);
     fseek(fp, 0, SEEK_SET);
@@ -169,7 +172,7 @@ ANN* ann_load(char *file)
     ANN *ann = malloc(filesize);
     if (!ann) { printf("ann_load: failed to allocate memory !\n"); goto done; }
 
-    fread(ann, 1, filesize, fp);
+    ret = fread(ann, 1, filesize, fp);
     float *pdata = (float*)(ann + 1);
     for (i = 0; i < ann->layer_num; i++) {
         ann->nodei[i] = pdata; pdata += ann->node_num_list[i];

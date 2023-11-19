@@ -35,7 +35,7 @@ void matrix_multiply(MATRIX *mr, MATRIX *m1, MATRIX *m2)
     for (r = 0; r < mr->rows; r++) {
         for (c = 0; c < mr->cols; c++) {
             for (dr[c] = 0, n = 0; n < m1->cols; n++) {
-                dr[c] += d1[n] * d2[c + m2->cols*n];
+                dr[c] += d1[n] * d2[c + m2->cols * n];
             }
         }
         d1 += m1->cols;

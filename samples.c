@@ -1,14 +1,15 @@
-#include "ffann.h"
+#include <stdlib.h>
+#include <stdio.h>
 #include "samples.h"
 
 SAMPLES* samples_create(int sampn, int inputn, int outputn)
 {
-    SAMPLES *samples = malloc(sizeof(SAMPLES) + sampn * (inputn + outputn) * sizeof(double));
+    SAMPLES *samples = malloc(sizeof(SAMPLES) + sampn * (inputn + outputn) * sizeof(float));
     if (samples) {
         samples->num_samples = sampn;
         samples->num_input   = inputn;
         samples->num_output  = outputn;
-        samples->data        = (double*)((uint8_t*)samples + sizeof(SAMPLES));
+        samples->data        = (float*)(samples + 1);
     } else {
         printf("samples_create: failed to allocate memory !\n");
     }
@@ -24,7 +25,8 @@ SAMPLES* samples_load(char *file)
 {
     SAMPLES *samples = NULL;
     FILE    *fp      = NULL;
-    int      filesize;
+    int      filesize, ret;
+    (void)ret;
     fp = fopen(file, "rb");
     if (fp) {
         fseek(fp, 0, SEEK_END);
@@ -32,8 +34,8 @@ SAMPLES* samples_load(char *file)
         fseek(fp, 0, SEEK_SET);
         samples  = malloc(filesize);
         if (samples) {
-            fread(samples, 1, filesize, fp);
-            samples->data = (double*)((uint8_t*)samples + sizeof(SAMPLES));
+            ret = fread(samples, 1, filesize, fp);
+            samples->data = (float*)(samples + 1);
         } else {
             printf("samples_load: failed to allocate memory !\n");
         }
@@ -55,20 +57,20 @@ void samples_save(SAMPLES *samples, char *file)
     datasize = samples->num_samples * (samples->num_input + samples->num_output);
     fp = fopen(file, "wb");
     if (fp) {
-        fwrite(samples, 1, sizeof(SAMPLES) + datasize * sizeof(double), fp);
+        fwrite(samples, 1, sizeof(SAMPLES) + datasize * sizeof(float), fp);
         fclose(fp);
     } else {
         printf("samples_save: failed to open file %s !\n", file);
     }
 }
 
-double* samples_get_input(SAMPLES *samples, int idx)
+float* samples_get_input(SAMPLES *samples, int idx)
 {
     if (!samples) return NULL;
     return samples->data + idx * (samples->num_input + samples->num_output);
 }
 
-double* samples_get_output(SAMPLES *samples, int idx)
+float* samples_get_output(SAMPLES *samples, int idx)
 {
     if (!samples) return NULL;
     return samples->data + idx * (samples->num_input + samples->num_output) + samples->num_input;
