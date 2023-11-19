@@ -66,7 +66,7 @@ void bmp_free(BMP *pb)
     pb->stride = 0;
 }
 
-double bmp_getpixel(BMP *pb, int i)
+float bmp_getpixel(BMP *pb, int i)
 {
     uint8_t *pbyte = pb->pdata;
     int x = i % pb->width;

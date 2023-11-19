@@ -9,9 +9,9 @@ typedef struct {
     void *pdata;   /* 指向数据 */
 } BMP;
 
-int    bmp_load(BMP *pb, char *file);
-void   bmp_free(BMP *pb);
-double bmp_getpixel(BMP *pb, int i);
+int   bmp_load(BMP *pb, char *file);
+void  bmp_free(BMP *pb);
+float bmp_getpixel(BMP *pb, int i);
 
 #endif
 
