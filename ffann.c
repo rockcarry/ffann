@@ -147,6 +147,13 @@ void ann_backward(ANN *ann, float *target, float rate)
     }
 }
 
+float *ann_output(ANN *ann, int *num)
+{
+    if (!ann) return NULL;
+    if (num) *num = ann->node_num_list[ann->layer_num - 1];
+    return ann->nodeo[ann->layer_num - 1];
+}
+
 float ann_error(ANN *ann, float *target)
 {
     float loss = 0;
@@ -192,15 +199,15 @@ done:
 void ann_save(ANN *ann, char *file)
 {
     FILE *fp = NULL;
-    int   datasize, i;
+    int   n, i;
     if (!ann || !file) { printf("ann_save: invalid samples or file !\n"); return; }
-    for (datasize = ann->node_num_list[0], i = 1; i<ann->layer_num; i++) {
-        datasize += ann->node_num_list[i] * 2;
-        datasize += ann->node_num_list[i - 1] * ann->node_num_list[i - 0];
+    for (n = ann->node_num_list[0] * 2, i = 1; i<ann->layer_num; i++) {
+        n += ann->node_num_list[i] * 3;
+        n += ann->node_num_list[i - 1] * ann->node_num_list[i - 0];
     }
     fp = fopen(file, "wb");
     if (!fp) { printf("ann_save: failed to open file %s !\n", file); return; }
-    fwrite(ann, 1, sizeof(ANN) + datasize * sizeof(float), fp);
+    fwrite(ann, 1, sizeof(ANN) + n * sizeof(float), fp);
     fclose(fp);
 }
 

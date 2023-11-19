@@ -35,9 +35,12 @@ int main(void)
 
     printf("\n");
     for (i = 0; i < 4; i++) {
+        float *outf;
+        int    outn;
         ann_forward(ann, input_samples[i]);
+        outf = ann_output(ann, &outn);
         printf("output_%d: ", i);
-        for (j = 0; j < node_num_list[total_layers - 1]; j++) printf("%9f ", ann_output(ann)[j]);
+        for (j = 0; j < outn; j++) printf("%9f ", outf[j]);
         printf("\n");
     }
     printf("\n");

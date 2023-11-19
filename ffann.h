@@ -29,11 +29,10 @@ ANN*  ann_load    (char *file);
 void  ann_destroy (ANN *ann);
 void  ann_forward (ANN *ann, float *input);
 void  ann_backward(ANN *ann, float *target, float rate);
+float*ann_output  (ANN *ann, int   *num);
 float ann_error   (ANN *ann, float *target);
-void  ann_save    (ANN *ann, char *file);
-void  ann_dump    (ANN *ann, char *file);
-
-#define ann_output(ann) ((ann)->nodeo[(ann)->layer_num - 1])
+void  ann_save    (ANN *ann, char  *file);
+void  ann_dump    (ANN *ann, char  *file);
 
 #endif
 
