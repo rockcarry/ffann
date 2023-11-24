@@ -72,7 +72,7 @@ void ann_destroy(ANN *ann)
 {
     if (ann) {
         matrix_destroy(ann->delta);
-        matrix_destroy(ann->error);
+        matrix_destroy(ann->loss );
         matrix_destroy(ann->dw   );
         free(ann);
     }
@@ -112,25 +112,25 @@ void ann_backward(ANN *ann, float *target, float rate)
     }
 
     if (!ann->delta) ann->delta = matrix_create(1, ann->node_num_max);
-    if (!ann->error) ann->error = matrix_create(ann->node_num_max, 1);
+    if (!ann->loss ) ann->loss  = matrix_create(ann->node_num_max, 1);
     if (!ann->dw   ) ann->dw    = matrix_create(ann->node_num_max, ann->node_num_max);
 
-    // calculate output layer errors
+    // calculate output layer loss
     float *nodei = ann->nodei[ann->layer_num - 1];
     float *nodeo = ann->nodeo[ann->layer_num - 1];
-    for (j = 0; j < ann->node_num_list[ann->layer_num - 1]; j++) ann->error->data[j] = nodeo[j] - target[j];
+    for (j = 0; j < ann->node_num_list[ann->layer_num - 1]; j++) ann->loss->data[j] = nodeo[j] - target[j];
 
     for (i = ann->layer_num - 1; i > 0; i--) {
         nodei = ann->nodei[i], nodeo = ann->nodeo[i];
         for (j = 0; j < ann->node_num_list[i]; j++) { // calculate current layer deltas
-            ann->delta->data[j] = ann->error->data[j] * activate_backward(ann->activate_list[i], nodei[j], nodeo[j]);
+            ann->delta->data[j] = ann->loss->data[j] * activate_backward(ann->activate_list[i], nodei[j], nodeo[j]);
         }
 
-        ann->error->rows = ann->weight[i].rows;
-        mat.rows         = ann->weight[i].cols;
-        mat.cols         = 1;
-        mat.data         = ann->delta->data;
-        matrix_multiply(ann->error, &ann->weight[i], &mat); // calculate current layer errors
+        ann->loss->rows = ann->weight[i].rows;
+        mat.rows        = ann->weight[i].cols;
+        mat.cols        = 1;
+        mat.data        = ann->delta->data;
+        matrix_multiply(ann->loss, &ann->weight[i], &mat); // calculate current layer loss
 
         // calculate weight gradient and update weights
         ann->dw->rows    = ann->weight[i].rows;
@@ -154,7 +154,7 @@ float *ann_output(ANN *ann, int *num)
     return ann->nodeo[ann->layer_num - 1];
 }
 
-float ann_error(ANN *ann, float *target)
+float ann_loss(ANN *ann, float *target)
 {
     float loss = 0;
     int   i;
@@ -189,7 +189,7 @@ ANN* ann_load(char *file)
             ann->weight[i].data = pdata; pdata += ann->weight[i].rows * ann->weight[i].cols;
         }
     }
-    ann->delta = ann->error = ann->dw = NULL;
+    ann->delta = ann->loss = ann->dw = NULL;
 
 done:
     fclose(fp);
@@ -251,14 +251,3 @@ void ann_dump(ANN *ann, char *file)
         if (file) fclose(fp);
     }
 }
-
-#ifdef _TEST_FFANN_
-int main(void)
-{
-    int node_num_list[3] = { 3, 5, 2 };
-    ANN *ann = ann_create(3, node_num_list);
-    ann_save(ann, "a.bin");
-    ann_dump(ann, "a.txt");
-    ann_destroy(ann);
-}
-#endif

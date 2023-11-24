@@ -20,7 +20,7 @@ typedef struct {
     float  *bias  [ANN_MAX_LAYER];
     MATRIX  weight[ANN_MAX_LAYER];
     MATRIX *delta;
-    MATRIX *error;
+    MATRIX *loss;
     MATRIX *dw;
 } ANN;
 
@@ -30,7 +30,7 @@ void  ann_destroy (ANN *ann);
 void  ann_forward (ANN *ann, float *input);
 void  ann_backward(ANN *ann, float *target, float rate);
 float*ann_output  (ANN *ann, int   *num);
-float ann_error   (ANN *ann, float *target);
+float ann_loss    (ANN *ann, float *target);
 void  ann_save    (ANN *ann, char  *file);
 void  ann_dump    (ANN *ann, char  *file);
 
