@@ -6,22 +6,29 @@
 #include "utils.h"
 #include "ffann.h"
 
-static float activate_forward(int type, float x)
+static float activate_forward(int type, float *in, int num, int idx)
 {
     switch (type) {
-    case FANN_ACTIVATE_SIGMOID: return 1 / (1 + expf(-x));
-    case FANN_ACTIVATE_RELU:    return x > 0 ? x : 0;
-    case FANN_ACTIVATE_LEAKY:   return x > 0 ? x : 0.01 * x;
+    case FFANN_ACTIVATE_SIGMOID: return 1 / (1 + expf(-in[idx]));
+    case FFANN_ACTIVATE_RELU:    return in[idx] > 0 ? in[idx] : 0;
+    case FFANN_ACTIVATE_LEAKY:   return in[idx] > 0 ? in[idx] : 0.01 * in[idx];
+    case FFANN_ACTIVATE_SOFTMAX: {
+            float max = 0, sum = 0; int i;
+            for (i = 0; i < num; i++) max  = MAX(max, in[i]);
+            for (i = 0; i < num; i++) sum += expf(in[i] - max);
+            return expf(in[idx] - max) / sum;
+        }
     }
     return 0;
 }
 
-static float activate_backward(int type, float xi, float xo)
+static float activate_backward(int type, float *in, int num, int idx, float out)
 {
     switch (type) {
-    case FANN_ACTIVATE_SIGMOID: return xo * (1 - xo);
-    case FANN_ACTIVATE_RELU:    return xi > 0 ? 1 : 0;
-    case FANN_ACTIVATE_LEAKY:   return xi > 0 ? 1 : 0.01;
+    case FFANN_ACTIVATE_SIGMOID: return out * (1 - out);
+    case FFANN_ACTIVATE_RELU:    return in[idx] > 0 ? 1 : 0;
+    case FFANN_ACTIVATE_LEAKY:   return in[idx] > 0 ? 1 : 0.01;
+    case FFANN_ACTIVATE_SOFTMAX: return 1;
     }
     return 0;
 }
@@ -97,7 +104,9 @@ void ann_forward(ANN *ann, float *input)
         mb.data = ann->bias [i - 0];
         matrix_multiply(&mo, &mi, &ann->weight[i]);
         matrix_adjust  (&mo, &mb, 1);
-        for (j = 0; j < ann->node_num_list[i]; j++) ann->nodeo[i][j] = activate_forward(ann->activate_list[i], ann->nodei[i][j]);
+        for (j = 0; j < ann->node_num_list[i]; j++) {
+            ann->nodeo[i][j] = activate_forward(ann->activate_list[i], ann->nodei[i], ann->node_num_list[i], j);
+        }
     }
 }
 
@@ -123,7 +132,7 @@ void ann_backward(ANN *ann, float *target, float rate)
     for (i = ann->layer_num - 1; i > 0; i--) {
         nodei = ann->nodei[i], nodeo = ann->nodeo[i];
         for (j = 0; j < ann->node_num_list[i]; j++) { // calculate current layer deltas
-            ann->delta->data[j] = ann->loss->data[j] * activate_backward(ann->activate_list[i], nodei[j], nodeo[j]);
+            ann->delta->data[j] = ann->loss->data[j] * activate_backward(ann->activate_list[i], nodei, ann->node_num_list[i], j, nodeo[j]);
         }
 
         ann->loss->rows = ann->weight[i].rows;
@@ -159,8 +168,17 @@ float ann_loss(ANN *ann, float *target)
     float loss = 0;
     int   i;
     if (!ann) return 0;
-    for (i = 0; i < ann->node_num_list[ann->layer_num - 1]; i++) {
-        loss += 0.5 * pow(target[i] - ann->nodeo[ann->layer_num - 1][i], 2);
+    switch (ann->activate_list[ann->layer_num - 1]) {
+    default:
+        for (i = 0; i < ann->node_num_list[ann->layer_num - 1]; i++) {
+            loss += 0.5 * pow(target[i] - ann->nodeo[ann->layer_num - 1][i], 2);
+        }
+        break;
+    case FFANN_ACTIVATE_SOFTMAX:
+        for (i = 0; i < ann->node_num_list[ann->layer_num - 1]; i++) {
+            loss -= target[i] * logf(ann->nodeo[ann->layer_num - 1][i] + 1e-10);
+        }
+        break;
     }
     return loss;
 }

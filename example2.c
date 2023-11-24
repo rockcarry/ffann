@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     int   node_num_list[ANN_MAX_LAYER] = {};
     int   activate_list[ANN_MAX_LAYER] = {};
     float batch_loss_cur, batch_loss_min, batch_loss_max, batch_loss_avg, batch_loss_total;
-    float learn_rate  = 1 / 16.0;
+    float learn_rate  = 1 / 32.0;
     float target_loss = 0.01;
     char *model_file  = "example2.bin";
     int   run_type    = 0; // 0 - inference, 1 - create train, 2 - load train
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
             ret = fread( buf, 28 * 28, 1, fp1);
             ret = fread(&out, 1, 1, fp2);
             for (j = 0; j < 28 * 28; j++) samples_get_input (samples, i)[j] = buf[j] ? buf[j] / 255.01 : 0.0001;
-            for (j = 0; j < 10;      j++) samples_get_output(samples, i)[j] = (out == j) ? 0.9999 : 0.0001;
+            for (j = 0; j < 10;      j++) samples_get_output(samples, i)[j] = (out == j) ? 1 : 0;
         }
     }
     if (fp1) fclose(fp1);
@@ -65,12 +65,12 @@ int main(int argc, char *argv[])
     case 1:
         node_num_list[0] = samples->num_input;
         node_num_list[1] = 64;
-        node_num_list[2] = 16;
+        node_num_list[2] = 20;
         node_num_list[3] = samples->num_output;
         activate_list[0] = 2;
         activate_list[1] = 2;
         activate_list[2] = 2;
-        activate_list[3] = 2;
+        activate_list[3] = 3;
         ann = ann_create(total_layers, node_num_list, activate_list);
         break;
     }
@@ -80,25 +80,27 @@ int main(int argc, char *argv[])
     }
 
     if (run_type == 0) {
+        int correct = 0;
         printf("\n");
         for (i = samples->num_samples - 100; i < samples->num_samples; i++) {
-            float *outf, max, score;
-            int    outn, cls = 0;
+            float *outf, *outt, maxf, maxt, score;
+            int    outn, clsf = 0, clst = 0;
             ann_forward(ann, samples_get_input(samples, i));
             outf = ann_output(ann, &outn);
+            outt = samples_get_output(samples, i);
             printf("output_%d: ", i);
-            for (max = 0, j = 0; j < outn; j++) {
-                printf("%9f ", outf[j]);
-                if (max < outf[j]) {
-                    max = outf[j];
-                    cls = j;
-                }
+            for (maxf = 0, maxt = 0, j = 0; j < outn; j++) {
+                printf("%8.5f ", outf[j]);
+                if (maxf < outf[j]) { maxf = outf[j]; clsf = j; }
+                if (maxt < outt[j]) { maxt = outt[j]; clst = j; }
             }
-            score = 1 - fabsf(max - 1);
-            printf("loss: %f, class: %d, score: %.2f", ann_loss(ann, samples_get_output(samples, i)), cls, score);
+            correct += clsf == clst;
+            printf("%c ", clsf == clst ? ' ' : 'F');
+            score = 1 - fabsf(maxf - 1);
+            printf("loss: %8.5f, class: %d, score: %.2f", ann_loss(ann, samples_get_output(samples, i)), clsf, score);
             printf("\n");
         }
-        printf("\n");
+        printf("precision: %5.2f %%\n", 100.0 * (i - correct) / i);
     } else {
         tick = get_timestamp32_ms() + 1000;
         sec  = 0;
@@ -120,7 +122,7 @@ int main(int argc, char *argv[])
                 batch_loss_total += batch_loss_cur;
                 batch_loss_avg    = batch_loss_total / (b + 1);
                 if (fpclassify(batch_loss_cur) != FP_NORMAL) { printf("got float point abnormal, model training failed !\n"); goto done; }
-                if (batch_loss_max < target_loss || (int32_t)get_timestamp32_ms() - (int32_t)tick > 0) {
+                if (batch_loss_avg < target_loss || (int32_t)get_timestamp32_ms() - (int32_t)tick > 0) {
                     printf("%5ds, round: %d, batch: %d, batch_loss_cur: %f, batch_loss_min: %f, batch_loss_max: %f, batch_loss_avg: %f\n",
                         ++sec, r, b + 1, batch_loss_cur, batch_loss_min, batch_loss_max, batch_loss_avg);
                     fflush(stdout);
@@ -128,7 +130,7 @@ int main(int argc, char *argv[])
                 }
             }
             ann_save(ann, model_file);
-        } while (batch_loss_max > target_loss);
+        } while (batch_loss_avg > target_loss);
         printf("model training finish !!\n");
     }
     ret = 0;
