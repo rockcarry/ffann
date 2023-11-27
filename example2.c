@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
     }
 
     if (run_type == 0) {
-        int correct = 0;
+        int correct = 0, total = 100;
         printf("\n");
         for (i = samples->num_samples - 100; i < samples->num_samples; i++) {
             float *outf, *outt, maxf, maxt, score;
@@ -100,11 +100,10 @@ int main(int argc, char *argv[])
             printf("loss: %8.5f, class: %d, score: %.2f", ann_loss(ann, samples_get_output(samples, i)), clsf, score);
             printf("\n");
         }
-        printf("precision: %5.2f %%\n", 100.0 * (i - correct) / i);
+        printf("precision: %5.2f %%\n", 100.0 * correct / total);
     } else {
         tick = get_timestamp32_ms() + 1000;
-        sec  = 0;
-        r    = 0;
+        sec  = r = batch_loss_avg = 0;
         do {
             r++;
             batch_loss_min   = 1000000;
