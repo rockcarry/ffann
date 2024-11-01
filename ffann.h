@@ -1,6 +1,7 @@
 #ifndef __FFANN_H__
 #define __FFANN_H__
 
+#include <stdint.h>
 #include "matrix.h"
 
 enum {
@@ -10,14 +11,14 @@ enum {
     FFANN_ACTIVATE_SOFTMAX,
 };
 
-#define ANN_MAX_LAYER  10
+#define ANN_MAX_LAYER  8
 typedef struct {
-    int     layer_num;
-    int     node_num_max;
-    int     node_num_list[ANN_MAX_LAYER];
-    int     activate_list[ANN_MAX_LAYER];
-    float  *nodei [ANN_MAX_LAYER];
-    float  *nodeo [ANN_MAX_LAYER];
+    int32_t layer_num;
+    int32_t node_num_max;
+    int32_t node_num_list[ANN_MAX_LAYER];
+    int32_t activate_list[ANN_MAX_LAYER];
+    float  *nodey [ANN_MAX_LAYER];
+    float  *nodez [ANN_MAX_LAYER];
     float  *bias  [ANN_MAX_LAYER];
     MATRIX  weight[ANN_MAX_LAYER];
     MATRIX *delta;

@@ -4,12 +4,14 @@
 #include "utils.h"
 #include "ffann.h"
 
+#define SAMPLE_NORMALIZE
+
 int main(void)
 {
     int   total_layers = 3;
-    int   node_num_list[ANN_MAX_LAYER] = { 2, 3, 2 };
+    int   node_num_list[ANN_MAX_LAYER] = { 2, 4, 2 };
     int   activate_list[ANN_MAX_LAYER] = { 2, 2, 2 };
-    float learn_rate = 0.5, target_loss = 0.000001, total_loss;
+    float learn_rate = 0.1, target_loss = 0.00001, total_loss;
     float input_samples [4][2] = { { 0, 0 }, { 0, 1 }, { 1, 0 }, { 1, 1 } };
     float output_samples[4][2] = { { 0, 0 }, { 1, 0 }, { 1, 0 }, { 0, 1 } };
     uint64_t total_times = 0;
@@ -18,6 +20,15 @@ int main(void)
     ANN *ann = ann_create(total_layers, node_num_list, activate_list);
     tick = get_timestamp32_ms() + 1000;
     sec  = 0;
+
+#ifdef SAMPLE_NORMALIZE
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 2; j++) {
+            input_samples [i][j] = input_samples[i][j] > 0.5 ? 0.999 : 0.001;
+            output_samples[i][j] = input_samples[i][j] > 0.5 ? 0.999 : 0.001;
+        }
+    }
+#endif
 
     do {
         total_loss = 0;
